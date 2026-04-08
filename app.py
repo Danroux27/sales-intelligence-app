@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import os
-import pdfkit
 from datetime import datetime
 
 st.set_page_config(layout="wide")
@@ -9,11 +8,6 @@ st.set_page_config(layout="wide")
 st.title("📊 Sales Intelligence System")
 
 HISTORY_FILE = "sales_history.csv"
-
-# ⚠️ MAKE SURE THIS PATH IS CORRECT
-config = pdfkit.configuration(
-    wkhtmltopdf=r"C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe"
-)
 
 # -----------------------------
 # UPLOAD FILE
@@ -103,7 +97,6 @@ if uploaded_file:
     col2.metric("📊 Team Score", f"{team_score:.1f}/100")
     col3.metric("👑 Top Performer", top["name"])
 
-    # STATUS
     if team_score > 75:
         st.success("🔥 High Performance Team")
     elif team_score > 50:
@@ -114,7 +107,7 @@ if uploaded_file:
     st.markdown("---")
 
     # -----------------------------
-    # MANAGER SUMMARY
+    # SUMMARY
     # -----------------------------
     st.markdown("## 🧠 Manager Summary")
 
@@ -135,29 +128,7 @@ if uploaded_file:
     st.write(f"Needs Attention: **{low['name']}** ({low['score']:.1f}/100)")
 
     # -----------------------------
-    # ISSUES
-    # -----------------------------
-    st.markdown("## ⚠️ Top Issues")
-
-    if team_score < 50:
-        st.error("Overall performance is below expected levels")
-
-    if total_revenue < 50000:
-        st.error("Low revenue generation")
-
-    # -----------------------------
-    # OPPORTUNITIES
-    # -----------------------------
-    st.markdown("## 🚀 Opportunities")
-
-    if total_revenue > 100000:
-        st.success("Strong revenue performance")
-
-    if team_score > 60:
-        st.success("Good overall team efficiency")
-
-    # -----------------------------
-    # DETAILED VIEW (FULL INFO BACK)
+    # INDIVIDUAL PERFORMANCE
     # -----------------------------
     st.markdown("## 👤 Individual Performance")
 
@@ -173,55 +144,46 @@ if uploaded_file:
         st.markdown("---")
 
     # -----------------------------
-    # PDF GENERATION
+    # HTML REPORT (PDF REPLACEMENT)
     # -----------------------------
-    if st.button("📄 Generate PDF Report"):
+    st.markdown("## 📄 Download Report")
 
-        today = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now().strftime("%Y-%m-%d")
 
-        html = f"""
-        <html>
-        <body style="font-family: Arial; padding:20px;">
+    html = f"""
+    <html>
+    <body style="font-family: Arial; padding:20px;">
+    <h1>Sales Report</h1>
+    <p>Date: {today}</p>
 
-        <h1>Sales Report</h1>
-        <p>Date: {today}</p>
+    <h2>Summary</h2>
+    <p>Revenue: R{total_revenue:,.0f}</p>
+    <p>Team Score: {team_score:.1f}/100</p>
+    <p>Top Performer: {top['name']}</p>
 
-        <h2>Summary</h2>
-        <p>Revenue: R{total_revenue:,.0f}</p>
-        <p>Team Score: {team_score:.1f}/100</p>
-        <p>Top Performer: {top['name']}</p>
+    <h2>Team Performance</h2>
+    <table border="1" cellspacing="0" cellpadding="5">
+    <tr>
+    <th>Name</th><th>Calls</th><th>Quotes</th><th>Deals</th><th>Score</th>
+    </tr>
+    """
 
-        <h2>Manager Summary</h2>
-        <p>
-        The team generated R{total_revenue:,.0f}. Performance is rated at {team_score:.1f}/100.
-        Focus on improving conversions and closing deals.
-        </p>
-
-        <h2>Team Performance</h2>
-        <table border="1" cellspacing="0" cellpadding="5">
+    for row in summary_data:
+        html += f"""
         <tr>
-        <th>Name</th><th>Calls</th><th>Quotes</th><th>Deals</th><th>Score</th>
+        <td>{row['name']}</td>
+        <td>{row['calls']}</td>
+        <td>{row['quotes']}</td>
+        <td>R{row['deals_value']:,.0f}</td>
+        <td>{row['score']:.1f}</td>
         </tr>
         """
 
-        for row in summary_data:
-            html += f"""
-            <tr>
-            <td>{row['name']}</td>
-            <td>{row['calls']}</td>
-            <td>{row['quotes']}</td>
-            <td>R{row['deals_value']:,.0f}</td>
-            <td>{row['score']:.1f}</td>
-            </tr>
-            """
+    html += "</table></body></html>"
 
-        html += "</table></body></html>"
-
-        file = f"sales_report_{today}.pdf"
-
-        pdfkit.from_string(html, file, configuration=config)
-
-        st.success("PDF Generated ✅")
-
-        with open(file, "rb") as f:
-            st.download_button("⬇ Download Report", f, file_name=file)
+    st.download_button(
+        label="⬇ Download Report (HTML)",
+        data=html,
+        file_name=f"sales_report_{today}.html",
+        mime="text/html"
+    )
