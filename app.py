@@ -5,9 +5,48 @@ from datetime import datetime
 
 st.set_page_config(layout="wide")
 
-st.title("📊 Sales Intelligence System")
+# -----------------------------
+# SIMPLE USER SYSTEM
+# -----------------------------
+USERS = {
+    "admin": "1234",
+    "test": "1234"
+}
 
-HISTORY_FILE = "sales_history.csv"
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.user = None
+
+# -----------------------------
+# LOGIN PAGE
+# -----------------------------
+if not st.session_state.logged_in:
+
+    st.title("🔐 Login")
+
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        if username in USERS and USERS[username] == password:
+            st.session_state.logged_in = True
+            st.session_state.user = username
+            st.rerun()
+        else:
+            st.error("Invalid login")
+
+    st.stop()
+
+# -----------------------------
+# MAIN APP
+# -----------------------------
+user = st.session_state.user
+st.title(f"📊 Sales Intelligence System - {user}")
+
+DATA_FOLDER = "data"
+os.makedirs(DATA_FOLDER, exist_ok=True)
+
+USER_FILE = f"{DATA_FOLDER}/{user}.csv"
 
 # -----------------------------
 # UPLOAD FILE
@@ -21,19 +60,17 @@ if uploaded_file:
 
     st.success("File uploaded ✅")
 
-    # -----------------------------
-    # SAVE HISTORY
-    # -----------------------------
-    if os.path.exists(HISTORY_FILE):
-        df_history = pd.read_csv(HISTORY_FILE)
+    # SAVE USER DATA
+    if os.path.exists(USER_FILE):
+        df_history = pd.read_csv(USER_FILE)
         df_all = pd.concat([df_history, df_new], ignore_index=True)
     else:
         df_all = df_new
 
-    df_all.to_csv(HISTORY_FILE, index=False)
+    df_all.to_csv(USER_FILE, index=False)
 
     # -----------------------------
-    # PROCESS DATA
+    # PROCESS DATA (FULL LOGIC)
     # -----------------------------
     summary_data = []
 
@@ -47,7 +84,6 @@ if uploaded_file:
         deals_value = person_df["Deals Closed (R)"].sum()
 
         deal_count = len(person_df[person_df["Status"] == "Won"])
-
         pipeline = person_df[person_df["Status"].isin(["New","Quoted"])]["Value (R)"].sum()
 
         call_to_quote = (quotes / calls * 100) if calls else 0
@@ -120,14 +156,6 @@ if uploaded_file:
     """)
 
     # -----------------------------
-    # RANKINGS
-    # -----------------------------
-    st.markdown("## 🏆 Team Rankings")
-
-    st.write(f"Top Performer: **{top['name']}** ({top['score']:.1f}/100)")
-    st.write(f"Needs Attention: **{low['name']}** ({low['score']:.1f}/100)")
-
-    # -----------------------------
     # INDIVIDUAL PERFORMANCE
     # -----------------------------
     st.markdown("## 👤 Individual Performance")
@@ -144,7 +172,7 @@ if uploaded_file:
         st.markdown("---")
 
     # -----------------------------
-    # HTML REPORT (PDF REPLACEMENT)
+    # HTML REPORT DOWNLOAD
     # -----------------------------
     st.markdown("## 📄 Download Report")
 
@@ -182,7 +210,7 @@ if uploaded_file:
     html += "</table></body></html>"
 
     st.download_button(
-        label="⬇ Download Report (HTML)",
+        label="⬇ Download Report",
         data=html,
         file_name=f"sales_report_{today}.html",
         mime="text/html"
