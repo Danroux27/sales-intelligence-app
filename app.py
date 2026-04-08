@@ -13,14 +13,18 @@ if "logged_in" not in st.session_state:
     st.session_state.user = None
 
 # -----------------------------
-# USER DATABASE
+# USER DATABASE (FIXED)
 # -----------------------------
 USER_DB = "users.csv"
 
 if not os.path.exists(USER_DB):
     pd.DataFrame(columns=["username", "password"]).to_csv(USER_DB, index=False)
 
-users_df = pd.read_csv(USER_DB)
+def load_users():
+    return pd.read_csv(USER_DB)
+
+def save_users(df):
+    df.to_csv(USER_DB, index=False)
 
 # -----------------------------
 # LOGIN / SIGNUP
@@ -34,24 +38,37 @@ if not st.session_state.logged_in:
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
 
+    users_df = load_users()
+
     if mode == "Sign Up":
+
         if st.button("Create Account"):
-            if username in users_df["username"].values:
+
+            if username == "" or password == "":
+                st.warning("Enter username and password")
+
+            elif username in users_df["username"].values:
                 st.error("User already exists")
+
             else:
                 new_user = pd.DataFrame([[username, password]], columns=["username", "password"])
                 users_df = pd.concat([users_df, new_user], ignore_index=True)
-                users_df.to_csv(USER_DB, index=False)
-                st.success("Account created! You can now log in.")
+                save_users(users_df)
+
+                st.success("✅ Account created! Now log in.")
 
     elif mode == "Login":
+
         if st.button("Login"):
-            user_match = users_df[
+
+            users_df = load_users()
+
+            match = users_df[
                 (users_df["username"] == username) &
                 (users_df["password"] == password)
             ]
 
-            if not user_match.empty:
+            if not match.empty:
                 st.session_state.logged_in = True
                 st.session_state.user = username
                 st.rerun()
@@ -80,7 +97,6 @@ if uploaded_file:
 
     st.success("File uploaded ✅")
 
-    # SAVE DATA
     if os.path.exists(USER_FILE):
         df_history = pd.read_csv(USER_FILE)
         df_all = pd.concat([df_history, df_new], ignore_index=True)
@@ -175,7 +191,6 @@ if uploaded_file:
     top = df_summary.sort_values("score", ascending=False).iloc[0]
 
     col1, col2, col3 = st.columns(3)
-
     col1.metric("💰 Revenue", f"R{total_revenue:,.0f}")
     col2.metric("📊 Team Score", f"{team_score:.1f}/100")
     col3.metric("👑 Top Performer", top["name"])
@@ -183,7 +198,7 @@ if uploaded_file:
     st.markdown("---")
 
     # -----------------------------
-    # 📊 CHARTS SECTION
+    # CHARTS
     # -----------------------------
     st.markdown("## 📊 Team Analytics")
 
@@ -196,13 +211,13 @@ if uploaded_file:
     st.subheader("Calls vs Deals")
     st.bar_chart(df_summary.set_index("name")[["calls", "deal_count"]])
 
-    total_calls = df_summary["calls"].sum()
-    total_quotes = df_summary["quotes"].sum()
-    total_deals = df_summary["deal_count"].sum()
-
     funnel_df = pd.DataFrame({
         "Stage": ["Calls", "Quotes", "Deals"],
-        "Count": [total_calls, total_quotes, total_deals]
+        "Count": [
+            df_summary["calls"].sum(),
+            df_summary["quotes"].sum(),
+            df_summary["deal_count"].sum()
+        ]
     }).set_index("Stage")
 
     st.subheader("Sales Funnel")
