@@ -6,25 +6,22 @@ from datetime import datetime
 st.set_page_config(layout="wide")
 
 # -----------------------------
-# SESSION STATE
+# SESSION STATE INIT
 # -----------------------------
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.user = None
 
 # -----------------------------
-# USER DATABASE (FIXED)
+# SIMPLE USER SYSTEM (STABLE)
 # -----------------------------
-USER_DB = "users.csv"
+DEFAULT_USERS = {
+    "admin": "1234",
+    "test": "1234"
+}
 
-if not os.path.exists(USER_DB):
-    pd.DataFrame(columns=["username", "password"]).to_csv(USER_DB, index=False)
-
-def load_users():
-    return pd.read_csv(USER_DB)
-
-def save_users(df):
-    df.to_csv(USER_DB, index=False)
+if "users" not in st.session_state:
+    st.session_state.users = DEFAULT_USERS.copy()
 
 # -----------------------------
 # LOGIN / SIGNUP
@@ -38,7 +35,7 @@ if not st.session_state.logged_in:
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
 
-    users_df = load_users()
+    users = st.session_state.users
 
     if mode == "Sign Up":
 
@@ -47,28 +44,19 @@ if not st.session_state.logged_in:
             if username == "" or password == "":
                 st.warning("Enter username and password")
 
-            elif username in users_df["username"].values:
+            elif username in users:
                 st.error("User already exists")
 
             else:
-                new_user = pd.DataFrame([[username, password]], columns=["username", "password"])
-                users_df = pd.concat([users_df, new_user], ignore_index=True)
-                save_users(users_df)
-
+                users[username] = password
+                st.session_state.users = users
                 st.success("✅ Account created! Now log in.")
 
     elif mode == "Login":
 
         if st.button("Login"):
 
-            users_df = load_users()
-
-            match = users_df[
-                (users_df["username"] == username) &
-                (users_df["password"] == password)
-            ]
-
-            if not match.empty:
+            if username in users and users[username] == password:
                 st.session_state.logged_in = True
                 st.session_state.user = username
                 st.rerun()
@@ -97,6 +85,7 @@ if uploaded_file:
 
     st.success("File uploaded ✅")
 
+    # Save history
     if os.path.exists(USER_FILE):
         df_history = pd.read_csv(USER_FILE)
         df_all = pd.concat([df_history, df_new], ignore_index=True)
@@ -120,7 +109,7 @@ if uploaded_file:
         deals_value = person_df["Deals Closed (R)"].sum()
 
         deal_count = len(person_df[person_df["Status"] == "Won"])
-        pipeline = person_df[person_df["Status"].isin(["New","Quoted"])]["Value (R)"].sum()
+        pipeline = person_df[person_df["Status"].isin(["New", "Quoted"])]["Value (R)"].sum()
 
         call_to_quote = (quotes / calls * 100) if calls else 0
         quote_to_deal = (deal_count / quotes * 100) if quotes else 0
@@ -138,7 +127,7 @@ if uploaded_file:
                  revenue_score * 0.2)
 
         # -----------------------------
-        # INSIGHTS ENGINE
+        # INSIGHTS
         # -----------------------------
         insights = []
         actions = []
@@ -161,7 +150,7 @@ if uploaded_file:
 
         if deal_count > 3:
             insights.append("Strong closing ability")
-            actions.append("Use as team benchmark")
+            actions.append("Use as benchmark")
 
         summary_data.append({
             "name": person,
@@ -187,7 +176,6 @@ if uploaded_file:
     # -----------------------------
     total_revenue = df_summary["deals_value"].sum()
     team_score = df_summary["score"].mean()
-
     top = df_summary.sort_values("score", ascending=False).iloc[0]
 
     col1, col2, col3 = st.columns(3)
@@ -200,15 +188,13 @@ if uploaded_file:
     # -----------------------------
     # CHARTS
     # -----------------------------
-    st.markdown("## 📊 Team Analytics")
-
-    st.subheader("Performance Score")
+    st.subheader("📊 Performance Score")
     st.bar_chart(df_summary.set_index("name")["score"])
 
-    st.subheader("Revenue by Salesperson")
+    st.subheader("💰 Revenue by Salesperson")
     st.bar_chart(df_summary.set_index("name")["deals_value"])
 
-    st.subheader("Calls vs Deals")
+    st.subheader("📞 Calls vs Deals")
     st.bar_chart(df_summary.set_index("name")[["calls", "deal_count"]])
 
     funnel_df = pd.DataFrame({
@@ -220,30 +206,29 @@ if uploaded_file:
         ]
     }).set_index("Stage")
 
-    st.subheader("Sales Funnel")
+    st.subheader("📉 Sales Funnel")
     st.bar_chart(funnel_df)
 
     st.markdown("---")
 
     # -----------------------------
-    # MANAGER SUMMARY
+    # SUMMARY
     # -----------------------------
-    st.markdown("## 🧠 Manager Summary")
-
+    st.subheader("🧠 Manager Summary")
     st.write(f"""
-    The team generated R{total_revenue:,.0f} in revenue with an overall score of {team_score:.1f}/100.
+    The team generated R{total_revenue:,.0f} in revenue with an average score of {team_score:.1f}/100.
 
-    {top['name']} is leading performance. Focus on improving conversion and pipeline movement across the team.
+    {top['name']} is the top performer today.
     """)
 
     # -----------------------------
     # INDIVIDUAL PERFORMANCE
     # -----------------------------
-    st.markdown("## 👤 Individual Performance")
+    st.subheader("👤 Individual Performance")
 
     for row in summary_data:
 
-        st.write(f"### {row['name']} (Score: {row['score']:.1f}/100)")
+        st.markdown(f"### {row['name']} (Score: {row['score']:.1f}/100)")
 
         st.write(f"Calls: {row['calls']} | Meetings: {row['meetings']} | Quotes: {row['quotes']}")
         st.write(f"Deals: R{row['deals_value']:,.0f} ({row['deal_count']} deals)")
@@ -263,9 +248,9 @@ if uploaded_file:
         st.markdown("---")
 
     # -----------------------------
-    # REPORT DOWNLOAD
+    # DOWNLOAD REPORT
     # -----------------------------
-    st.markdown("## 📄 Download Report")
+    st.subheader("📄 Download Report")
 
     today = datetime.now().strftime("%Y-%m-%d")
 
