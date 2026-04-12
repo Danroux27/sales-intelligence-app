@@ -66,7 +66,7 @@ top1, top2 = st.columns([6,1])
 
 with top1:
     st.title("📊 Sales Intelligence System")
-    st.write(f"Welcome, **{user}**")
+    st.markdown(f"<h4 style='text-align:center;'>Welcome, {user} 👋</h4>", unsafe_allow_html=True)
 
 with top2:
     if st.button("Logout"):
@@ -88,39 +88,83 @@ if uploaded_file:
 
         person_df = df[df["Salesperson"] == person]
 
+        # -----------------------------
+        # CORE METRICS
+        # -----------------------------
         calls = person_df["Calls"].sum()
+        meetings = person_df["Meetings"].sum() if "Meetings" in df.columns else 0
         quotes = person_df["Quotes Sent"].sum()
         deals_value = person_df["Deals Closed (R)"].sum()
+
         deal_count = len(person_df[person_df["Status"] == "Won"])
 
+        pipeline = person_df[
+            person_df["Status"].isin(["New", "Quoted"])
+        ]["Value (R)"].sum() if "Value (R)" in df.columns else 0
+
+        # -----------------------------
+        # CONVERSIONS
+        # -----------------------------
         call_to_quote = (quotes / calls * 100) if calls else 0
         quote_to_deal = (deal_count / quotes * 100) if quotes else 0
 
-        score = (calls * 0.3) + (quote_to_deal * 0.5) + (deals_value / 1000 * 0.2)
+        revenue_per_call = (deals_value / calls) if calls else 0
+        avg_deal_size = (deals_value / deal_count) if deal_count else 0
 
+        # -----------------------------
+        # SCORING MODEL
+        # -----------------------------
+        activity_score = min(calls / 30 * 100, 100)
+        conversion_score = (call_to_quote + quote_to_deal) / 2
+        revenue_score = min(deals_value / 50000 * 100, 100)
+
+        score = (
+            activity_score * 0.4 +
+            conversion_score * 0.4 +
+            revenue_score * 0.2
+        )
+
+        # -----------------------------
+        # AI INSIGHTS + ACTIONS
+        # -----------------------------
         insights = []
         actions = []
 
-        if calls > 20 and quote_to_deal < 20:
-            insights.append("High activity but low closing rate")
-            actions.append("Improve closing techniques")
-
-        if calls < 10:
+        if calls < 15:
             insights.append("Low activity levels")
             actions.append("Increase outbound calls")
+
+        if call_to_quote < 20:
+            insights.append("Weak call-to-quote conversion")
+            actions.append("Improve pitch and qualification")
+
+        if quote_to_deal < 20:
+            insights.append("Low closing rate")
+            actions.append("Focus on follow-ups and closing techniques")
+
+        if pipeline > deals_value:
+            insights.append("Pipeline is strong but not converting")
+            actions.append("Prioritise closing existing deals")
 
         if quote_to_deal > 40:
             insights.append("Strong closer")
             actions.append("Maintain performance")
 
+        # -----------------------------
+        # SAVE DATA
+        # -----------------------------
         summary_data.append({
             "name": person,
             "calls": calls,
+            "meetings": meetings,
             "quotes": quotes,
             "deals": deals_value,
             "deal_count": deal_count,
+            "pipeline": pipeline,
             "c2q": call_to_quote,
             "q2d": quote_to_deal,
+            "rev_per_call": revenue_per_call,
+            "avg_deal": avg_deal_size,
             "score": score,
             "insights": insights,
             "actions": actions
@@ -144,9 +188,7 @@ if uploaded_file:
         col2.metric("Team Score", f"{team_score:.1f}/100")
 
         st.markdown("## Manager Summary")
-        st.write(
-            "Overall team performance shows key opportunities in conversion improvement and deal closing efficiency."
-        )
+        st.write("Team performance highlights key opportunities in conversion improvement and deal closing.")
 
         st.markdown("---")
 
@@ -157,10 +199,14 @@ if uploaded_file:
 
             st.write(f"### {row['name']} (Score: {row['score']:.1f})")
 
-            st.write(f"Calls: {row['calls']} | Quotes: {row['quotes']}")
-            st.write(f"Deals: R{row['deals']:,.0f}")
+            st.write(f"Calls: {row['calls']} | Meetings: {row['meetings']} | Quotes: {row['quotes']}")
+            st.write(f"Deals: R{row['deals']:,.0f} ({row['deal_count']} deals)")
+            st.write(f"Pipeline: R{row['pipeline']:,.0f}")
 
             st.write(f"Conversion: {row['c2q']:.1f}% → {row['q2d']:.1f}%")
+
+            st.write(f"Revenue/Call: R{row['rev_per_call']:.0f}")
+            st.write(f"Avg Deal Size: R{row['avg_deal']:.0f}")
 
             if row["insights"]:
                 st.write("Insights:")
@@ -179,7 +225,6 @@ if uploaded_file:
         # -----------------------------
         st.markdown("## 📊 Performance Insights")
 
-        # Row 1
         g1, g2 = st.columns(2)
 
         with g1:
@@ -190,13 +235,12 @@ if uploaded_file:
             st.markdown("**Revenue Generated**")
             st.bar_chart(df_summary.set_index("name")["deals"])
 
-        # Row 2
         g3, g4 = st.columns(2)
 
         with g3:
-            st.markdown("**Calls vs Deals Closed**")
-            st.bar_chart(df_summary.set_index("name")[["calls", "deal_count"]])
+            st.markdown("**Pipeline vs Closed Revenue**")
+            st.bar_chart(df_summary.set_index("name")[["pipeline", "deals"]])
 
         with g4:
-            st.markdown("**Conversion Rate (Quote → Deal %)**")
-            st.bar_chart(df_summary.set_index("name")["q2d"])
+            st.markdown("**Revenue per Call**")
+            st.bar_chart(df_summary.set_index("name")["rev_per_call"])
