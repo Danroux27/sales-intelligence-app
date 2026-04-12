@@ -150,9 +150,6 @@ if uploaded_file:
             insights.append("Strong closer")
             actions.append("Maintain performance")
 
-        # -----------------------------
-        # SAVE DATA
-        # -----------------------------
         summary_data.append({
             "name": person,
             "calls": calls,
@@ -187,60 +184,42 @@ if uploaded_file:
         col1.metric("Total Revenue", f"R{total_revenue:,.0f}")
         col2.metric("Team Score", f"{team_score:.1f}/100")
 
-        st.markdown("## Manager Summary")
-        st.write("Team performance highlights key opportunities in conversion improvement and deal closing.")
-
         st.markdown("---")
 
-        # INDIVIDUAL PERFORMANCE
-        st.markdown("## Individual Performance")
-
-        for row in summary_data:
-
-            st.write(f"### {row['name']} (Score: {row['score']:.1f})")
-
-            st.write(f"Calls: {row['calls']} | Meetings: {row['meetings']} | Quotes: {row['quotes']}")
-            st.write(f"Deals: R{row['deals']:,.0f} ({row['deal_count']} deals)")
-            st.write(f"Pipeline: R{row['pipeline']:,.0f}")
-
-            st.write(f"Conversion: {row['c2q']:.1f}% → {row['q2d']:.1f}%")
-
-            st.write(f"Revenue/Call: R{row['rev_per_call']:.0f}")
-            st.write(f"Avg Deal Size: R{row['avg_deal']:.0f}")
-
-            if row["insights"]:
-                st.write("Insights:")
-                for i in row["insights"]:
-                    st.write(f"- {i}")
-
-            if row["actions"]:
-                st.write("Actions:")
-                for a in row["actions"]:
-                    st.write(f"- {a}")
-
-            st.markdown("---")
-
         # -----------------------------
-        # GRAPHS SECTION
+        # FINAL GRAPH + SUMMARY LAYOUT
         # -----------------------------
-        st.markdown("## 📊 Performance Insights")
+        left_col, center_col, right_col = st.columns([1,2,1])
 
-        g1, g2 = st.columns(2)
-
-        with g1:
-            st.markdown("**Performance Score**")
-            st.bar_chart(df_summary.set_index("name")["score"])
-
-        with g2:
+        # LEFT SIDE
+        with left_col:
             st.markdown("**Revenue Generated**")
             st.bar_chart(df_summary.set_index("name")["deals"])
 
-        g3, g4 = st.columns(2)
+            st.markdown("<br><br><br>", unsafe_allow_html=True)
 
-        with g3:
+            st.markdown("**Calls vs Deals Closed**")
+            st.bar_chart(df_summary.set_index("name")[["calls", "deal_count"]])
+
+        # CENTER SUMMARY
+        with center_col:
+            st.markdown("<h2 style='text-align:center;'>🧠 Manager Summary</h2>", unsafe_allow_html=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            st.markdown(
+                "<div style='text-align:center;'>"
+                "Team performance highlights key opportunities in conversion improvement and deal closing."
+                "</div>",
+                unsafe_allow_html=True
+            )
+
+        # RIGHT SIDE
+        with right_col:
+            st.markdown("**Performance Score**")
+            st.bar_chart(df_summary.set_index("name")["score"])
+
+            st.markdown("<br><br><br>", unsafe_allow_html=True)
+
             st.markdown("**Pipeline vs Closed Revenue**")
             st.bar_chart(df_summary.set_index("name")[["pipeline", "deals"]])
-
-        with g4:
-            st.markdown("**Revenue per Call**")
-            st.bar_chart(df_summary.set_index("name")["rev_per_call"])
