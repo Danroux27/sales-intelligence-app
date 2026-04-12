@@ -88,9 +88,6 @@ if uploaded_file:
 
         person_df = df[df["Salesperson"] == person]
 
-        # -----------------------------
-        # CORE METRICS
-        # -----------------------------
         calls = person_df["Calls"].sum()
         meetings = person_df["Meetings"].sum() if "Meetings" in df.columns else 0
         quotes = person_df["Quotes Sent"].sum()
@@ -102,18 +99,12 @@ if uploaded_file:
             person_df["Status"].isin(["New", "Quoted"])
         ]["Value (R)"].sum() if "Value (R)" in df.columns else 0
 
-        # -----------------------------
-        # CONVERSIONS
-        # -----------------------------
         call_to_quote = (quotes / calls * 100) if calls else 0
         quote_to_deal = (deal_count / quotes * 100) if quotes else 0
 
         revenue_per_call = (deals_value / calls) if calls else 0
         avg_deal_size = (deals_value / deal_count) if deal_count else 0
 
-        # -----------------------------
-        # SCORING MODEL
-        # -----------------------------
         activity_score = min(calls / 30 * 100, 100)
         conversion_score = (call_to_quote + quote_to_deal) / 2
         revenue_score = min(deals_value / 50000 * 100, 100)
@@ -124,9 +115,6 @@ if uploaded_file:
             revenue_score * 0.2
         )
 
-        # -----------------------------
-        # AI INSIGHTS + ACTIONS
-        # -----------------------------
         insights = []
         actions = []
 
@@ -173,53 +161,112 @@ if uploaded_file:
     team_score = df_summary["score"].mean()
 
     # -----------------------------
-    # CENTERED LAYOUT
+    # TOP METRICS
     # -----------------------------
-    left_space, main_col, right_space = st.columns([1,3,1])
+    col1, col2 = st.columns(2)
+    col1.metric("Total Revenue", f"R{total_revenue:,.0f}")
+    col2.metric("Team Score", f"{team_score:.1f}/100")
 
-    with main_col:
+    st.markdown("---")
 
-        # TOP METRICS
-        col1, col2 = st.columns(2)
-        col1.metric("Total Revenue", f"R{total_revenue:,.0f}")
-        col2.metric("Team Score", f"{team_score:.1f}/100")
+    # -----------------------------
+    # MAIN LAYOUT (GRAPHS + CONTENT)
+    # -----------------------------
+    left_col, center_col, right_col = st.columns([1,2,1])
+
+    # LEFT GRAPHS
+    with left_col:
+        st.markdown("**Revenue Generated**")
+        st.bar_chart(df_summary.set_index("name")["deals"])
+
+        st.markdown("<br><br><br>", unsafe_allow_html=True)
+
+        st.markdown("**Calls vs Deals Closed**")
+        st.bar_chart(df_summary.set_index("name")[["calls", "deal_count"]])
+
+    # CENTER CONTENT (ALL INFO)
+    with center_col:
+
+        top = df_summary.sort_values("score", ascending=False).iloc[0]
+        low = df_summary.sort_values("score").iloc[0]
+
+        st.markdown("## 🧠 Manager Summary")
+
+        st.write(f"""
+        The team generated R{total_revenue:,.0f} in revenue with an overall performance score of {team_score:.1f}/100.
+
+        {top['name']} led performance, while {low['name']} requires attention.
+
+        Focus should be placed on improving conversion and closing outstanding opportunities.
+        """)
 
         st.markdown("---")
 
-        # -----------------------------
-        # FINAL GRAPH + SUMMARY LAYOUT
-        # -----------------------------
-        left_col, center_col, right_col = st.columns([1,2,1])
+        st.markdown("## 🏆 Team Rankings")
+        st.write(f"Top Performer: **{top['name']}** ({top['score']:.1f}/100)")
+        st.write(f"Needs Attention: **{low['name']}** ({low['score']:.1f}/100)")
 
-        # LEFT SIDE
-        with left_col:
-            st.markdown("**Revenue Generated**")
-            st.bar_chart(df_summary.set_index("name")["deals"])
+        st.markdown("---")
 
-            st.markdown("<br><br><br>", unsafe_allow_html=True)
+        st.markdown("## ⚠️ Top Issues")
 
-            st.markdown("**Calls vs Deals Closed**")
-            st.bar_chart(df_summary.set_index("name")[["calls", "deal_count"]])
+        if team_score < 50:
+            st.error("Overall performance is below expected levels")
 
-        # CENTER SUMMARY
-        with center_col:
-            st.markdown("<h2 style='text-align:center;'>🧠 Manager Summary</h2>", unsafe_allow_html=True)
+        if total_revenue < 50000:
+            st.error("Low revenue generation")
 
-            st.markdown("<br>", unsafe_allow_html=True)
+        if df_summary["q2d"].mean() < 20:
+            st.warning("Low closing rate across the team")
 
-            st.markdown(
-                "<div style='text-align:center;'>"
-                "Team performance highlights key opportunities in conversion improvement and deal closing."
-                "</div>",
-                unsafe_allow_html=True
-            )
+        st.markdown("---")
 
-        # RIGHT SIDE
-        with right_col:
-            st.markdown("**Performance Score**")
-            st.bar_chart(df_summary.set_index("name")["score"])
+        st.markdown("## 🚀 Opportunities")
 
-            st.markdown("<br><br><br>", unsafe_allow_html=True)
+        if total_revenue > 100000:
+            st.success("Strong revenue performance")
 
-            st.markdown("**Pipeline vs Closed Revenue**")
-            st.bar_chart(df_summary.set_index("name")[["pipeline", "deals"]])
+        if df_summary["pipeline"].sum() > total_revenue:
+            st.success("Strong pipeline — focus on closing deals")
+
+    # RIGHT GRAPHS
+    with right_col:
+        st.markdown("**Performance Score**")
+        st.bar_chart(df_summary.set_index("name")["score"])
+
+        st.markdown("<br><br><br>", unsafe_allow_html=True)
+
+        st.markdown("**Pipeline vs Closed Revenue**")
+        st.bar_chart(df_summary.set_index("name")[["pipeline", "deals"]])
+
+    st.markdown("---")
+
+    # -----------------------------
+    # INDIVIDUAL PERFORMANCE
+    # -----------------------------
+    st.markdown("## 👤 Individual Performance")
+
+    for row in summary_data:
+
+        st.write(f"### {row['name']} (Score: {row['score']:.1f})")
+
+        st.write(f"Calls: {row['calls']} | Meetings: {row['meetings']} | Quotes: {row['quotes']}")
+        st.write(f"Deals: R{row['deals']:,.0f} ({row['deal_count']} deals)")
+        st.write(f"Pipeline: R{row['pipeline']:,.0f}")
+
+        st.write(f"Conversion: {row['c2q']:.1f}% → {row['q2d']:.1f}%")
+
+        st.write(f"Revenue/Call: R{row['rev_per_call']:.0f}")
+        st.write(f"Avg Deal Size: R{row['avg_deal']:.0f}")
+
+        if row["insights"]:
+            st.write("Insights:")
+            for i in row["insights"]:
+                st.write(f"- {i}")
+
+        if row["actions"]:
+            st.write("Actions:")
+            for a in row["actions"]:
+                st.write(f"- {a}")
+
+        st.markdown("---")
