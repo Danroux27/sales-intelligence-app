@@ -170,103 +170,119 @@ if uploaded_file:
     st.markdown("---")
 
     # -----------------------------
-    # MAIN LAYOUT (GRAPHS + CONTENT)
+    # TOP SECTION (CLEAN)
     # -----------------------------
-    left_col, center_col, right_col = st.columns([1,2,1])
+    top = df_summary.sort_values("score", ascending=False).iloc[0]
+    low = df_summary.sort_values("score").iloc[0]
 
-    # LEFT GRAPHS
-    with left_col:
-        st.markdown("**Revenue Generated**")
-        st.bar_chart(df_summary.set_index("name")["deals"])
+    st.markdown("## 🧠 Manager Summary")
 
-        st.markdown("<br><br><br>", unsafe_allow_html=True)
+    st.write(f"""
+    The team generated R{total_revenue:,.0f} in revenue with an overall performance score of {team_score:.1f}/100.
 
-        st.markdown("**Calls vs Deals Closed**")
-        st.bar_chart(df_summary.set_index("name")[["calls", "deal_count"]])
+    **{top['name']}** is currently leading performance, while **{low['name']}** requires attention.
 
-    # CENTER CONTENT (ALL INFO)
-    with center_col:
+    The biggest opportunity lies in improving conversion rates and closing pipeline opportunities.
+    """)
 
-        top = df_summary.sort_values("score", ascending=False).iloc[0]
-        low = df_summary.sort_values("score").iloc[0]
+    st.markdown("---")
 
-        st.markdown("## 🧠 Manager Summary")
+    st.markdown("## 🏆 Team Rankings")
+    st.write(f"Top Performer: **{top['name']}** ({top['score']:.1f}/100)")
+    st.write(f"Needs Attention: **{low['name']}** ({low['score']:.1f}/100)")
 
-        st.write(f"""
-        The team generated R{total_revenue:,.0f} in revenue with an overall performance score of {team_score:.1f}/100.
+    st.markdown("---")
 
-        {top['name']} led performance, while {low['name']} requires attention.
+    st.markdown("## ⚠️ Key Issues")
 
-        Focus should be placed on improving conversion and closing outstanding opportunities.
-        """)
+    if team_score < 50:
+        st.error("Overall team performance is low — urgent improvement required")
 
-        st.markdown("---")
+    if df_summary["q2d"].mean() < 20:
+        st.warning("Low closing rate — deals are not converting")
 
-        st.markdown("## 🏆 Team Rankings")
-        st.write(f"Top Performer: **{top['name']}** ({top['score']:.1f}/100)")
-        st.write(f"Needs Attention: **{low['name']}** ({low['score']:.1f}/100)")
+    if df_summary["calls"].mean() < 15:
+        st.warning("Low activity levels across the team")
 
-        st.markdown("---")
+    st.markdown("---")
 
-        st.markdown("## ⚠️ Top Issues")
+    st.markdown("## 🚀 Opportunities")
 
-        if team_score < 50:
-            st.error("Overall performance is below expected levels")
+    if df_summary["pipeline"].sum() > total_revenue:
+        st.success("Strong pipeline — focus on closing existing deals")
 
-        if total_revenue < 50000:
-            st.error("Low revenue generation")
-
-        if df_summary["q2d"].mean() < 20:
-            st.warning("Low closing rate across the team")
-
-        st.markdown("---")
-
-        st.markdown("## 🚀 Opportunities")
-
-        if total_revenue > 100000:
-            st.success("Strong revenue performance")
-
-        if df_summary["pipeline"].sum() > total_revenue:
-            st.success("Strong pipeline — focus on closing deals")
-
-    # RIGHT GRAPHS
-    with right_col:
-        st.markdown("**Performance Score**")
-        st.bar_chart(df_summary.set_index("name")["score"])
-
-        st.markdown("<br><br><br>", unsafe_allow_html=True)
-
-        st.markdown("**Pipeline vs Closed Revenue**")
-        st.bar_chart(df_summary.set_index("name")[["pipeline", "deals"]])
+    if team_score > 60:
+        st.success("Team efficiency is improving")
 
     st.markdown("---")
 
     # -----------------------------
-    # INDIVIDUAL PERFORMANCE
+    # TEAM ACTION PLAN
     # -----------------------------
-    st.markdown("## 👤 Individual Performance")
+    st.markdown("## 🧭 Team Action Plan")
 
-    for row in summary_data:
+    st.write("""
+    - Increase daily call targets for low-activity salespeople  
+    - Implement structured follow-ups on all outstanding quotes  
+    - Focus on closing deals already in the pipeline before chasing new leads  
+    - Top performers should share techniques with the team  
+    - Review pricing, objections, and closing scripts weekly  
+    """)
 
-        st.write(f"### {row['name']} (Score: {row['score']:.1f})")
+    st.markdown("---")
 
-        st.write(f"Calls: {row['calls']} | Meetings: {row['meetings']} | Quotes: {row['quotes']}")
-        st.write(f"Deals: R{row['deals']:,.0f} ({row['deal_count']} deals)")
-        st.write(f"Pipeline: R{row['pipeline']:,.0f}")
+    # -----------------------------
+    # BOTTOM SECTION
+    # -----------------------------
+    left_col, right_col = st.columns([2,1])
 
-        st.write(f"Conversion: {row['c2q']:.1f}% → {row['q2d']:.1f}%")
+    # LEFT: INDIVIDUAL PERFORMANCE
+    with left_col:
+        st.markdown("## 👤 Individual Performance")
 
-        st.write(f"Revenue/Call: R{row['rev_per_call']:.0f}")
-        st.write(f"Avg Deal Size: R{row['avg_deal']:.0f}")
+        for row in summary_data:
 
-        if row["insights"]:
-            st.write("Insights:")
-            for i in row["insights"]:
-                st.write(f"- {i}")
+            st.write(f"### {row['name']} (Score: {row['score']:.1f})")
 
-        if row["actions"]:
-            st.write("Actions:")
-            for a in row["actions"]:
-                st.write(f"- {a}")
+            st.write(f"Calls: {row['calls']} | Meetings: {row['meetings']} | Quotes: {row['quotes']}")
+            st.write(f"Deals: R{row['deals']:,.0f} ({row['deal_count']} deals)")
+            st.write(f"Pipeline: R{row['pipeline']:,.0f}")
 
-        st.markdown("---")
+            st.write(f"Conversion: {row['c2q']:.1f}% → {row['q2d']:.1f}%")
+
+            st.write(f"Revenue/Call: R{row['rev_per_call']:.0f}")
+            st.write(f"Avg Deal Size: R{row['avg_deal']:.0f}")
+
+            st.write("**Recommended Actions:**")
+
+            if row["calls"] < 15:
+                st.write("- Increase outbound calls — activity is too low")
+
+            if row["c2q"] < 20:
+                st.write("- Improve pitch — leads are not converting to quotes")
+
+            if row["q2d"] < 20:
+                st.write("- Focus on closing — follow up more aggressively")
+
+            if row["pipeline"] > row["deals"]:
+                st.write("- Prioritise closing pipeline deals before chasing new leads")
+
+            if row["q2d"] > 40:
+                st.write("- Strong closer — maintain performance and mentor others")
+
+            st.markdown("---")
+
+    # RIGHT: GRAPHS
+    with right_col:
+        st.markdown("### 📊 Performance Score")
+        st.bar_chart(df_summary.set_index("name")["score"])
+
+        st.markdown("<br><br><br>", unsafe_allow_html=True)
+
+        st.markdown("### 📊 Revenue Generated")
+        st.bar_chart(df_summary.set_index("name")["deals"])
+
+        st.markdown("<br><br><br>", unsafe_allow_html=True)
+
+        st.markdown("### 📊 Pipeline vs Revenue")
+        st.bar_chart(df_summary.set_index("name")[["pipeline", "deals"]])
